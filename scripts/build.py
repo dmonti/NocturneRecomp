@@ -175,6 +175,16 @@ def main():
             os.remove(name)
 
     run([rexglue, "codegen", manifest_path])
+
+    with open(manifest_path, "r") as f:
+        lines = f.readlines()
+    with open(manifest_path, "w") as f:
+        for line in lines:
+            if line.startswith("sdk_version"):
+                f.write('sdk_version = ""\n')
+            else:
+                f.write(line)
+
     run(["cmake", "--preset", preset] + cmake_configure_args)
     run(["cmake", "--build", "--preset", preset, "--parallel", str(os.cpu_count() or 1)])
 
