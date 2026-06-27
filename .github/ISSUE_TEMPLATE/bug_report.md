@@ -1,6 +1,6 @@
 ---
 name: Bug report
-about: Report a crash or incorrect behaviour in NocturneRecomp: Reprise
+about: Report a crash or incorrect behaviour in NocturneRecomp
 title: ''
 labels: bug
 assignees: ''
@@ -22,7 +22,7 @@ What you expected to happen instead.
 If applicable, attach screenshots or a short clip.
 
 **Build info**
- - NocturneRecomp: Reprise version / commit:
+ - NocturneRecomp version / commit:
  - Build config (Release / RelWithDebInfo / Debug):
  - OS: [e.g. Windows 11]
  - GPU: [e.g. RTX 4070]

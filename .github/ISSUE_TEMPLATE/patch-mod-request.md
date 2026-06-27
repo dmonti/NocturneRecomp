@@ -1,6 +1,6 @@
 ---
 name: Patch / Mod request
-about: Suggest a patch or mod for NocturneRecomp: Reprise
+about: Suggest a patch or mod for NocturneRecomp
 title: ''
 labels: enhancement
 assignees: ''
