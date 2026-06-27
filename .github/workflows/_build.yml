@@ -36,14 +36,16 @@ jobs:
             sdk_dir: win-amd64
             artifact_suffix: windows-x64
 
-          - platform: linux
-            runner: ubuntu-latest
-            sdk_dir: linux-amd64
-            artifact_suffix: linux-x64
+          # - platform: linux
+          #   runner: ubuntu-latest
+          #   sdk_dir: linux-amd64
+          #   artifact_suffix: linux-x64
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
       - name: Install dependencies (Linux)
         if: matrix.platform == 'linux'
@@ -61,9 +63,13 @@ jobs:
           variant: sccache
           key: ${{ matrix.platform }}-amd64
 
-      - name: Download ReXGlue SDK
+      - name: Build ReXGlue SDK from submodule
         shell: bash
-        run: python scripts/download-sdk.py sdk/${{ matrix.sdk_dir }} --pinned
+        run: |
+          cd rexglue-sdk
+          cmake --preset ${{ matrix.sdk_dir }}
+          cmake --build --preset ${{ matrix.sdk_dir }}-release -- -j$(nproc 2>/dev/null || echo $NUMBER_OF_PROCESSORS)
+          cmake --install out/build/${{ matrix.sdk_dir }} --config Release --prefix "$GITHUB_WORKSPACE/sdk"
 
       - name: Cache XEX asset for codegen
         id: asset-cache
@@ -88,7 +94,7 @@ jobs:
 
       - name: Build
         shell: bash
-        run: python scripts/build.py --sdk-dir sdk/${{ matrix.sdk_dir }}
+        run: python scripts/build.py --sdk-dir sdk
 
       - name: sccache stats
         if: always()
