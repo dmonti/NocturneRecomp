@@ -9,6 +9,12 @@
 
 #include <rex/rex_app.h>
 
+#ifdef _WIN32
+#include <Windows.h>
+#include <timeapi.h>
+#pragma comment(lib, "winmm.lib")
+#endif
+
 #include "nocturnerecomp_fp_guard.h"
 
 class NocturnerecompApp : public rex::ReXApp {
@@ -23,6 +29,7 @@ class NocturnerecompApp : public rex::ReXApp {
 
   void OnPreSetup(rex::RuntimeConfig& /*config*/) override {
 #ifdef _WIN32
+    timeBeginPeriod(1);
     veh_handle_ = InstallGuestFpExceptionHandlerWin();
 #endif
   }
@@ -37,6 +44,9 @@ class NocturnerecompApp : public rex::ReXApp {
   void OnShutdown() override {
     RemoveGuestFpExceptionHandler(veh_handle_);
     veh_handle_ = nullptr;
+#ifdef _WIN32
+    timeEndPeriod(1);
+#endif
   }
 
  private:
