@@ -11,9 +11,11 @@ overlays, hooks) so the game runs natively and can be modded like a PC port.
 
 ## Using a pre-built release
 
+> Nocturne Recomp is available on [Goopie](https://goopie.xyz)!
+
 Get the latest stable build from the [Releases](../../releases/latest) page.
 
-Nightly builds are available from [CI artifacts](../../actions/workflows/ci.yml).
+Nightly builds are available from [CI artifacts](https://nightly.link/birabittoh/NocturneRecomp/workflows/ci/main).
 
 Just place the downloaded executable next to the extracted `assets` directory and run it.
 
@@ -56,36 +58,16 @@ extract-xiso -d assets "NocturneRecomp (PAL).iso"
 
 `assets/default.xex` must exist before running codegen.
 
-### 4. Run codegen
+### 4. Build
+
+Use this script:
 
 ```bash
-sdk/bin/rexglue codegen nocturnerecomp_manifest.toml
-```
+# Vanilla
+python scripts/build.py
 
-### 5. Build
-
-```bash
-# Linux
-cmake --preset linux-amd64-release -DCMAKE_PREFIX_PATH="sdk"
-cmake --build --preset linux-amd64-release -- -j$(nproc)
-```
-
-```powershell
-# Windows
-cmake --preset win-amd64-release -DCMAKE_PREFIX_PATH="sdk"
-cmake --build --preset win-amd64-release -- -j $env:NUMBER_OF_PROCESSORS
-```
-
-Symlink assets into the build output so the binary can find them:
-
-```bash
-# Linux
-ln -sf "$PWD/assets" out/build/linux-amd64-release/assets
-```
-
-```powershell
-# Windows
-New-Item -ItemType Junction -Path out/build/win-amd64-release/assets -Target "$PWD/assets"
+# Title Update
+python scripts/build.py --tu /path/to/TU_*
 ```
 
 ## Options
@@ -99,22 +81,7 @@ user_language = 1 # English
 
 ### Keyboard & mouse
 
-Keyboard and mouse controls are enabled by default. Default mapping:
-
-| Input | Xbox 360 button |
-|-------|----------------|
-| WASD | Left stick |
-| Mouse | Right stick (camera) |
-| `1` / `2` / `3` | X / Y / B |
-| Space | A |
-| Left click | LT |
-| Right click | RT |
-| Q / E | LB / RB |
-| Enter | Start |
-| Backspace | Back |
-| Arrow keys | D-Pad |
-
-All bindings are overridable via `nocturnerecomp.toml` (or CLI flags). For example:
+Keyboard and mouse controls are enabled by default. All bindings are overridable via `nocturnerecomp.toml` (or CLI flags). For example:
 
 ```toml
 keybind_a = "F"
