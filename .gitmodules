@@ -1,4 +1,0 @@
-[submodule "rexglue-sdk"]
-	path = rexglue-sdk
-	url = https://github.com/birabittoh/rexglue-sdk.git
-	branch = castlevania

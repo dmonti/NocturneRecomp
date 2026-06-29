@@ -1,7 +1,7 @@
 # NocturneRecomp
 
 Static recompilation of **Castlevania: Symphony of the Night** (Xbox Live Arcade) for Windows
-and Linux, built on the [ReXGlue SDK](https://github.com/rexglue/rexglue-sdk).
+and Linux, built on the [ReXGlue SDK](https://github.com/birabittoh/rexglue-sdk).
 
 This project converts the Xbox 360 PowerPC `default.xex` into native x86_64
 code at build time, then wraps it with a small host runtime (logging,
@@ -149,7 +149,7 @@ void MyHook(PPCRegister& r3) {
 
 ## Credits
 
-- [ReXGlue SDK](https://github.com/rexglue/rexglue-sdk)
+- [ReXGlue SDK](https://github.com/birabittoh/rexglue-sdk)
 
 ## License
 

@@ -1,7 +1,7 @@
-# sdk_version is intentionally empty: this project ships its own SDK as a submodule,
-# so codegen's migration step always regenerates generated/rexglue.cmake against the
-# SDK that is built (a fresh CI checkout has no generated/ dir). codegen re-stamps this
-# to the SDK floor in the working tree after each run; do not commit that change.
+# sdk_version is intentionally empty: the SDK is downloaded as a prebuilt nightly
+# (pinned in .sdk-version). An empty value lets codegen accept any installed SDK.
+# codegen re-stamps this to the SDK floor in the working tree after each run;
+# do not commit that change.
 [project]
 sdk_version = ""
 name = "nocturnerecomp"
