@@ -21,6 +21,11 @@
 #endif
 
 #include "achievements_menu.h"
+#include "audio_player.h"
+
+#include <rex/kernel/xam/apps/xmp_app.h>
+#include <rex/system/kernel_state.h>
+#include <rex/system/xam/app_manager.h>
 #include "nocturnerecomp_fp_guard.h"
 
 class NocturnerecompApp : public rex::ReXApp {
@@ -53,6 +58,16 @@ class NocturnerecompApp : public rex::ReXApp {
     // live after setup.
     auto* input_sys = static_cast<rex::input::InputSystem*>(runtime()->input_system());
     nocturne::Achievements().Bind(window(), &app_context(), input_sys);
+    nocturne::GetAudioPlayer().Bind(window(), &app_context());
+
+    auto* ks = rex::system::kernel_state();
+    if (ks && ks->app_manager()) {
+      auto* xmp = static_cast<rex::kernel::xam::apps::XmpApp*>(
+          ks->app_manager()->FindApp(0xFA));
+      if (xmp) {
+        xmp->ScanFilesystem();
+      }
+    }
 
     // Keep guest input "active" while our achievements overlay is open so the
     // B-watcher / left-stick reads see the real controller regardless of mouse
@@ -76,6 +91,7 @@ class NocturnerecompApp : public rex::ReXApp {
   // later in OnPostSetup. See achievements_menu.cpp.
   void OnCreateDialogs(rex::ui::ImGuiDrawer* drawer) override {
     nocturne::Achievements().AttachWatcher(drawer);
+    nocturne::GetAudioPlayer().AttachDialog(drawer);
   }
 
   void OnShutdown() override {

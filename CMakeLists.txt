@@ -17,6 +17,7 @@ set(NOCTURNERECOMP_SOURCES
     src/main.cpp
     src/nocturnerecomp_hooks.cpp
     src/achievements_menu.cpp
+    src/audio_player.cpp
     ${GENERATED_SOURCES}
 )
 
