@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import hashlib
 import os
 import sys
 import glob
@@ -48,16 +49,48 @@ def find_clangxx():
     sys.exit(1)
 
 
-def run(args, **kwargs):
+def run(args, check=True, **kwargs):
     print(f"+ {' '.join(str(a) for a in args)}")
     result = subprocess.run(args, **kwargs)
-    if result.returncode != 0:
+    if result.returncode != 0 and check:
         sys.exit(result.returncode)
+    return result
 
 
 def load_manifest(path):
     with open(path, "rb") as f:
         return tomllib.load(f)
+
+
+def compute_codegen_hash(manifest, manifest_path):
+    """Hash every input that determines codegen output."""
+    h = hashlib.sha256()
+
+    # 1. XEX binary
+    xex_path = manifest["entrypoint"]["file_path"]
+    with open(xex_path, "rb") as f:
+        while chunk := f.read(1 << 20):
+            h.update(chunk)
+
+    # 2. Include files (e.g. nocturnerecomp_config.toml)
+    for inc in manifest["entrypoint"].get("includes", []):
+        with open(inc, "rb") as f:
+            h.update(f.read())
+
+    # 3. Manifest itself, with sdk_version normalized out (codegen re-stamps it,
+    #    build.py blanks it again — either way the hash must be stable).
+    with open(manifest_path, "r") as f:
+        for line in f:
+            if not line.startswith("sdk_version"):
+                h.update(line.encode())
+
+    # 4. SDK identity
+    sdk_version_file = os.path.join(os.path.dirname(manifest_path), ".sdk-version")
+    if os.path.exists(sdk_version_file):
+        with open(sdk_version_file, "rb") as f:
+            h.update(f.read())
+
+    return h.hexdigest()
 
 
 def copy_runtime_libs(is_windows, sdk_dir):
@@ -114,6 +147,8 @@ def parse_args():
     p.add_argument("--sdk-dir", default="sdk", help="Path to the ReXGlue SDK (default: sdk)")
     p.add_argument("--package", metavar="NAME", help="Package built output into NAME.zip (Windows) or NAME.tar.gz (Linux); skips the build")
     p.add_argument("--debug", action="store_true", help="Build with debug symbols (uses the debug CMake preset)")
+    p.add_argument("--force-codegen", action="store_true", help="Force codegen even if inputs are unchanged")
+    p.add_argument("--strict-codegen", action="store_true", help="Abort the build if codegen returns a non-zero exit code")
     return p.parse_args()
 
 
@@ -144,6 +179,11 @@ def main():
 
     sdk_dir = args.sdk_dir
     rexglue = os.path.join(sdk_dir, "bin", "rexglue.exe" if is_windows else "rexglue")
+
+    if not os.path.exists(rexglue):
+        print(f"SDK not found at '{sdk_dir}' — downloading pinned version...")
+        run([sys.executable, os.path.join(script_dir, "download-sdk.py"), sdk_dir, "--pinned"])
+
     xex_path = manifest["entrypoint"]["file_path"]
 
     if not os.path.exists(xex_path):
@@ -174,16 +214,31 @@ def main():
             print(f"+ rm {name}")
             os.remove(name)
 
-    run([rexglue, "codegen", manifest_path])
+    stamp_path = os.path.join("out", "codegen.stamp")
+    new_hash = compute_codegen_hash(manifest, manifest_path)
+    generated_present = os.path.exists(os.path.join("generated", "sources.cmake"))
+    old_hash = None
+    if os.path.exists(stamp_path):
+        with open(stamp_path, "r") as f:
+            old_hash = f.read().strip()
 
-    with open(manifest_path, "r") as f:
-        lines = f.readlines()
-    with open(manifest_path, "w") as f:
-        for line in lines:
-            if line.startswith("sdk_version"):
-                f.write('sdk_version = ""\n')
-            else:
-                f.write(line)
+    if not args.force_codegen and new_hash == old_hash and generated_present:
+        print("+ codegen inputs unchanged — skipping codegen (incremental build)")
+    else:
+        run([rexglue, "codegen", manifest_path], check=args.strict_codegen)
+
+        with open(manifest_path, "r") as f:
+            lines = f.readlines()
+        with open(manifest_path, "w") as f:
+            for line in lines:
+                if line.startswith("sdk_version"):
+                    f.write('sdk_version = ""\n')
+                else:
+                    f.write(line)
+
+        os.makedirs("out", exist_ok=True)
+        with open(stamp_path, "w") as f:
+            f.write(new_hash)
 
     run(["cmake", "--preset", preset] + cmake_configure_args)
     run(["cmake", "--build", "--preset", preset, "--parallel", str(os.cpu_count() or 1)])
