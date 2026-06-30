@@ -43,6 +43,8 @@ extracted/
 /update/
 *.xexp
 
+mods/
+
 # Python caches
 __pycache__/
 

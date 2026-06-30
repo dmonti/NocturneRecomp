@@ -54,6 +54,13 @@ def main():
     if os.path.isdir(update_path):
         cmd += ["--update_data_root", update_path]
 
+    # Mod overlay: pass the mods directory so the runtime can layer enabled mods
+    # over game data. Which mods are active is controlled by enabled_mods in the
+    # project's .toml config (not a CLI flag).
+    mods_path = os.path.join(root, "mods")
+    if os.path.isdir(mods_path):
+        cmd += ["--mods_data_root", mods_path]
+
     cmd += sys.argv[1:]
     sys.exit(subprocess.run(cmd, env=env).returncode)
 
