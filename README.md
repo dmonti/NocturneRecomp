@@ -9,15 +9,7 @@ overlays, hooks) so the game runs natively and can be modded like a PC port.
 
 **You must own the game.** This project does **not** ship any NocturneRecomp code, data, or assets. You provide your own legally dumped ISO.
 
-## Using a pre-built release
-
-> Nocturne Recomp is available on [Goopie](https://goopie.xyz)!
-
-Get the latest stable build from the [Releases](../../releases/latest) page.
-
-Nightly builds are available from [CI artifacts](https://nightly.link/birabittoh/NocturneRecomp/workflows/ci/main).
-
-Just place the downloaded executable next to the extracted `assets` directory and run it.
+# Get the game on [Goopie](https://goopie.xyz)!
 
 ## Building from scratch
 
@@ -36,7 +28,7 @@ scoop install llvm cmake ninja
 ### 1. Clone
 
 ```bash
-git clone <this-repo-url>
+git clone https://github.com/birabittoh/NocturneRecomp
 cd NocturneRecomp
 ```
 
@@ -45,8 +37,6 @@ cd NocturneRecomp
 ```bash
 python scripts/download-sdk.py
 ```
-
-This downloads the latest nightly and installs it into `sdk/<platform>/`.
 
 ### 3. Provide your game
 
@@ -70,32 +60,6 @@ python scripts/build.py
 python scripts/build.py --tu /path/to/TU_*
 ```
 
-### Title update (`--tu`)
-
-The retail title update relocates the whole executable, so it needs its own
-recompilation. Pass the TU package(s) (the `TU_*` STFS file the console
-downloaded, or a directory of them) to `--tu`:
-
-```bash
-python scripts/build.py --tu TU_1C42227_000010G000000.00000000000G4
-```
-
-The build script picks the package whose embedded patch matches your
-`assets/default.xex` (by signature), stages it as the sibling
-`assets/default.xexp` (codegen and the runtime both apply it automatically),
-extracts the TU's bundled data into `update/`, and recompiles using
-`nocturnerecomp_tu_config.toml` (the patched image's codegen hints — the vanilla
-`nocturnerecomp_config.toml` addresses don't apply). `scripts/run.py` mounts
-`update/` as the `update:` device automatically, so the same run command works
-for both builds. Switching back to a plain `python scripts/build.py` clears the
-staged patch and rebuilds the vanilla image.
-
-You can also run the extractor standalone (e.g. to inspect a package):
-
-```bash
-python scripts/extract_tu.py --base assets/default.xex TU_*
-```
-
 ### 5. Run
 
 ```bash
@@ -103,9 +67,9 @@ python scripts/run.py
 ```
 
 This runs the freshly built executable with the correct CLI arguments
-(`--game_data_root`, `--gpu_plugin`, `--license_mask`), and automatically
-mounts `update/` and `mods/` as the `update:`/mod data devices when those
-directories exist. Any extra arguments are forwarded to the executable, e.g.:
+(`--game_data_root=assets`, `--gpu_plugin=xenos`, `--license_mask=1`).
+
+Any extra arguments are forwarded to the executable, e.g.:
 
 ```bash
 python scripts/run.py --vulkan_device 1
@@ -122,7 +86,7 @@ user_language = 1 # English
 
 ### Keyboard & mouse
 
-Keyboard and mouse controls are enabled by default. All bindings are overridable via `nocturnerecomp.toml` (or CLI flags). For example:
+Keyboard and mouse controls are enabled by default. All bindings are overridable in the **F4** menu or `nocturnerecomp.toml`. For example:
 
 ```toml
 keybind_a = "F"
