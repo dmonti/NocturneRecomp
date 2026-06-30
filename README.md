@@ -1,7 +1,7 @@
 # NocturneRecomp
 
 Static recompilation of **Castlevania: Symphony of the Night** (Xbox Live Arcade) for Windows
-and Linux, built on the [ReXGlue SDK](https://github.com/birabittoh/rexglue-sdk).
+and Linux, built on the [ReXGlue SDK](https://github.com/rexglue/rexglue-sdk).
 
 This project converts the Xbox 360 PowerPC `default.xex` into native x86_64
 code at build time, then wraps it with a small host runtime (logging,
@@ -25,7 +25,7 @@ Just place the downloaded executable next to the extracted `assets` directory an
 
 #### Linux (Arch/CachyOS)
 ```bash
-paru -S clang20 cmake ninja vulkan-headers extract-xiso
+paru -S clang20 cmake ninja vulkan-headers
 ```
 
 #### Windows
@@ -50,10 +50,10 @@ This downloads the latest nightly and installs it into `sdk/<platform>/`.
 
 ### 3. Provide your game
 
-Extract your legally dumped ISO directly into `assets/`:
+Place your legally dumped XBLA package (the `LIVE`/STFS file) into `game/`, then extract it into `assets/`:
 
 ```bash
-extract-xiso -d assets "NocturneRecomp (PAL).iso"
+python scripts/extract-game.py
 ```
 
 `assets/default.xex` must exist before running codegen.
@@ -96,6 +96,21 @@ You can also run the extractor standalone (e.g. to inspect a package):
 python scripts/extract_tu.py --base assets/default.xex TU_*
 ```
 
+### 5. Run
+
+```bash
+python scripts/run.py
+```
+
+This runs the freshly built executable with the correct CLI arguments
+(`--game_data_root`, `--gpu_plugin`, `--license_mask`), and automatically
+mounts `update/` and `mods/` as the `update:`/mod data devices when those
+directories exist. Any extra arguments are forwarded to the executable, e.g.:
+
+```bash
+python scripts/run.py --vulkan_device 1
+```
+
 ## Options
 
 Options can be persisted by adding them to `nocturnerecomp.toml` next to the game executable, for example:
@@ -122,7 +137,7 @@ Mouse sensitivity is controlled by `mnk_sensitivity` (default `1.0`).
 If you have multiple GPUs, you can force a specific one:
 
 ```bash
-./nocturnerecomp --vulkan_device 1
+python scripts/run.py --vulkan_device 1
 ```
 
 List available devices by running the game without the flag.
@@ -132,7 +147,7 @@ List available devices by running the game without the flag.
 The game writes logs into the `logs` directory by default, but you can configure it.
 
 ```bash
-./nocturnerecomp --log_file nocturne.log --log_level debug
+python scripts/run.py --log_file nocturne.log --log_level debug
 ```
 
 ## Adding a hook
@@ -175,7 +190,7 @@ void MyHook(PPCRegister& r3) {
 
 ## Credits
 
-- [ReXGlue SDK](https://github.com/birabittoh/rexglue-sdk)
+- [ReXGlue SDK](https://github.com/rexglue/rexglue-sdk)
 
 ## License
 

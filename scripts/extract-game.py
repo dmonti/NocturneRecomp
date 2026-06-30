@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Extract the local Daytona USA XBLA STFS package.
+"""Extract the local SOTN XBLA STFS package.
 
 This is intentionally narrow: it extracts the known LIVE/STFS package layout
 used by the XBLA release and writes the files needed by this repository.
@@ -171,16 +171,10 @@ def main() -> int:
         help="Path to the local XBLA LIVE/STFS package. Defaults to the only file in game/.",
     )
     parser.add_argument(
-        "--out",
-        type=Path,
-        default=repo_root / "extracted",
-        help="Directory for extracted package contents.",
-    )
-    parser.add_argument(
         "--assets",
         type=Path,
         default=repo_root / "assets",
-        help="Directory that receives default.xex for ReXGlue.",
+        help="Directory that receives the package contents, including default.xex, for ReXGlue.",
     )
     args = parser.parse_args()
 
@@ -195,7 +189,7 @@ def main() -> int:
 
     for entry in entries:
         relative = entry_path(entry, entries)
-        destination = args.out / relative
+        destination = args.assets / relative
         if entry.is_directory:
             destination.mkdir(parents=True, exist_ok=True)
             continue
@@ -207,12 +201,7 @@ def main() -> int:
     if default_xex is None:
         raise RuntimeError("extracted package did not contain root default.xex")
 
-    args.assets.mkdir(parents=True, exist_ok=True)
-    asset_xex = args.assets / "default.xex"
-    asset_xex.write_bytes(default_xex.read_bytes())
-
-    print(f"Extracted {extracted} files to {args.out}")
-    print(f"Wrote {asset_xex}")
+    print(f"Extracted {extracted} files to {args.assets}")
     return 0
 
 

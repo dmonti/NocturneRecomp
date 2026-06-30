@@ -164,9 +164,8 @@ class Stfs:
 #
 # A title update is an STFS package wrapping an XEX2 *delta patch*. The patch's
 # delta descriptor records the SHA-1 of the rsa_signature of the exact base XEX
-# it expects (digest_source). Kameo ships three regional variants of the update
-# (target versions 2.0.1/2.0.2/2.0.3); each targets a different base dump, so the
-# right one to apply is whichever digest_source matches your default.xex.
+# it expects (digest_source). select_matching() uses this to pick the package
+# whose digest_source matches your default.xex.
 
 KEY_DELTA_PATCH = 0x000005FF
 
@@ -265,7 +264,7 @@ def select_matching(packages, base_xex):
 def main():
     import argparse
     p = argparse.ArgumentParser(
-        description="Extract/select the Kameo title-update XEX delta patch from STFS package(s).")
+        description="Extract/select the SOTN title-update XEX delta patch from STFS package(s).")
     p.add_argument("packages", nargs="+", help="TU package file(s) (LIVE/CON/PIRS)")
     p.add_argument("--base", metavar="XEX",
                    help="base default.xex; only the patch matching it is written")

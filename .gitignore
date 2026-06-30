@@ -28,14 +28,12 @@ nocturnerecomp.toml
 /*.so
 /*.dll
 
-# Game assets extracted from the user's ISO
-# (the ISO itself and anything derived from it must NEVER be committed)
+# Game package and assets extracted from it
+# (the package itself and anything derived from it must NEVER be committed)
 9F2DAA064D494AA82B43B65362C59E9B89A88F8F58
-/*.iso
+/game/
 /assets/
 !/assets/.gitkeep
-extracted/
-/out/iso_extract/
 
 # Title-update packages and anything extracted from them (copyrighted; the user
 # supplies their own — see scripts/extract_tu.py)
