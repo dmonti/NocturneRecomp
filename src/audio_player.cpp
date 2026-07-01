@@ -38,6 +38,57 @@ std::string FilenameFromPath(const std::u16string& path) {
   return utf8;
 }
 
+// A "group" is either a lone track or a primary+companion pair that together
+// represent one musical track (e.g. shiro1 + shiro2 → "shiro").
+struct TrackGroup {
+  int primary_index;    // index into known_songs_
+  int companion_index;  // index into known_songs_, or -1
+};
+
+// Builds the flat known_songs list into logical groups. Companion tracks
+// (those that are the "…2.wma" of some "…1.wma" primary) are absorbed into
+// their primary's group and do not appear as separate rows.
+std::vector<TrackGroup> BuildGroups(XmpApp* xmp) {
+  const auto& songs = xmp->known_songs();
+  const int n = static_cast<int>(songs.size());
+
+  // For each index, record whether it is someone else's companion.
+  std::vector<bool> absorbed(n, false);
+  std::vector<int> companion(n, -1);
+  for (int i = 0; i < n; ++i) {
+    int ci = xmp->CompanionIndexOf(static_cast<size_t>(i));
+    companion[i] = ci;
+    if (ci >= 0) {
+      absorbed[ci] = true;
+    }
+  }
+
+  std::vector<TrackGroup> groups;
+  groups.reserve(n);
+  for (int i = 0; i < n; ++i) {
+    if (!absorbed[i]) {
+      groups.push_back({i, companion[i]});
+    }
+  }
+  return groups;
+}
+
+// Returns the display label for a group. When a companion is present, strip
+// the trailing "1" from the primary's filename (shiro1 → shiro).
+std::string GroupLabel(const XmpApp* xmp, const TrackGroup& g) {
+  const auto& song = xmp->known_songs()[g.primary_index];
+  std::string label;
+  if (!song.name.empty()) {
+    label = rex::string::to_utf8(song.name);
+  } else {
+    label = FilenameFromPath(song.file_path);
+  }
+  if (g.companion_index >= 0 && !label.empty() && label.back() == '1') {
+    label.pop_back();
+  }
+  return label;
+}
+
 }  // namespace
 
 class AudioPlayerDialog : public rex::ui::ImGuiDialog {
@@ -75,21 +126,35 @@ class AudioPlayerDialog : public rex::ui::ImGuiDialog {
       return;
     }
 
+    // Build grouped view. current_group is the index of the group containing
+    // the playing track (primary or companion).
+    auto groups = BuildGroups(xmp);
+    const int num_groups = static_cast<int>(groups.size());
+    const int playing_ki = xmp->playing_known_index();
+
+    int current_group = -1;
+    for (int g = 0; g < num_groups; ++g) {
+      if (groups[g].primary_index == playing_ki ||
+          groups[g].companion_index == playing_ki) {
+        current_group = g;
+        break;
+      }
+    }
+
     bool is_playing = xmp->state() == XmpApp::State::kPlaying;
     bool is_paused = xmp->state() == XmpApp::State::kPaused;
-    int current_idx = xmp->playing_known_index();
-    int num_songs = static_cast<int>(songs.size());
 
-    if (current_idx >= 0 && current_idx < num_songs) {
-      std::string now = FilenameFromPath(songs[current_idx].file_path);
+    if (current_group >= 0) {
+      std::string now = GroupLabel(xmp, groups[current_group]);
       ImGui::Text("%s: %s", is_playing ? "Playing" : "Paused", now.c_str());
     } else {
       ImGui::TextUnformatted("Stopped");
     }
 
+    // |< button: go to previous group
     if (ImGui::Button("|<")) {
-      int prev = current_idx > 0 ? current_idx - 1 : num_songs - 1;
-      xmp->PlayKnownSong(prev);
+      int prev = current_group > 0 ? current_group - 1 : num_groups - 1;
+      xmp->PlayKnownSong(groups[prev].primary_index);
     }
     ImGui::SameLine();
     if (is_playing) {
@@ -100,15 +165,17 @@ class AudioPlayerDialog : public rex::ui::ImGuiDialog {
       if (ImGui::Button(">")) {
         if (is_paused) {
           xmp->XMPContinue();
-        } else if (num_songs > 0) {
-          xmp->PlayKnownSong(current_idx >= 0 ? current_idx : 0);
+        } else if (num_groups > 0) {
+          int g = current_group >= 0 ? current_group : 0;
+          xmp->PlayKnownSong(groups[g].primary_index);
         }
       }
     }
     ImGui::SameLine();
+    // >| button: go to next group
     if (ImGui::Button(">|")) {
-      int next = current_idx >= 0 ? (current_idx + 1) % num_songs : 0;
-      xmp->PlayKnownSong(next);
+      int next = current_group >= 0 ? (current_group + 1) % num_groups : 0;
+      xmp->PlayKnownSong(groups[next].primary_index);
     }
     ImGui::SameLine();
     if (ImGui::Button("[]")) {
@@ -128,25 +195,19 @@ class AudioPlayerDialog : public rex::ui::ImGuiDialog {
     ImGui::Separator();
 
     ImGui::BeginChild("##tracklist", ImVec2(0, 0), true);
-    for (int i = 0; i < num_songs; ++i) {
-      const auto& song = songs[i];
+    for (int g = 0; g < num_groups; ++g) {
+      const TrackGroup& group = groups[g];
+      std::string label = GroupLabel(xmp, group);
 
-      std::string label;
-      if (!song.name.empty()) {
-        label = rex::string::to_utf8(song.name);
-      } else {
-        label = FilenameFromPath(song.file_path);
-      }
-
-      bool is_current = (i == current_idx) && (is_playing || is_paused);
+      bool is_current = (g == current_group) && (is_playing || is_paused);
       if (is_current) {
         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.2f, 1.0f, 0.4f, 1.0f));
       }
 
       char buf[512];
-      snprintf(buf, sizeof(buf), "%d. %s", i + 1, label.c_str());
+      snprintf(buf, sizeof(buf), "%d. %s", g + 1, label.c_str());
       if (ImGui::Selectable(buf, is_current)) {
-        xmp->PlayKnownSong(i);
+        xmp->PlayKnownSong(group.primary_index);
       }
 
       if (is_current) {
