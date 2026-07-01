@@ -1,8 +1,11 @@
 #include "audio_player.h"
 
 #include <string>
+#include <string_view>
 
 #include <imgui.h>
+
+#include "track_names.h"
 
 #include <rex/kernel/xam/apps/xmp_app.h>
 #include <rex/string/utf8.h>
@@ -85,6 +88,12 @@ std::string GroupLabel(const XmpApp* xmp, const TrackGroup& g) {
   }
   if (g.companion_index >= 0 && !label.empty() && label.back() == '1') {
     label.pop_back();
+  }
+  std::string_view pretty = PrettyTrackName(label);
+  if (!pretty.empty()) {
+    label += " (";
+    label.append(pretty);
+    label += ")";
   }
   return label;
 }
