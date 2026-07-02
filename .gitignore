@@ -44,7 +44,9 @@ nocturnerecomp.toml
 /update/
 *.xexp
 
+# Modding stuff
 mods/
+dumps/
 
 # Python caches
 __pycache__/

@@ -98,6 +98,104 @@ std::string GroupLabel(const XmpApp* xmp, const TrackGroup& g) {
   return label;
 }
 
+// Small vector-drawn transport icons, so the player's controls read as real
+// icons instead of ASCII-art text glued to a button label.
+namespace icons {
+
+constexpr float kButtonSize = 22.0f;
+
+void DrawPrev(ImDrawList* dl, ImVec2 p0, ImVec2 p1, ImU32 col) {
+  ImVec2 c((p0.x + p1.x) * 0.5f, (p0.y + p1.y) * 0.5f);
+  float s = (p1.y - p0.y) * 0.26f;
+  constexpr float kBarW = 2.2f;
+  float tri_w = s * 1.6f;
+  float half = (kBarW + tri_w) * 0.5f;
+  float bar_left = c.x - half;
+  float bar_right = bar_left + kBarW;
+  dl->AddRectFilled(ImVec2(bar_left, c.y - s), ImVec2(bar_right, c.y + s), col);
+  dl->AddTriangleFilled(ImVec2(bar_right + tri_w, c.y - s), ImVec2(bar_right + tri_w, c.y + s),
+                        ImVec2(bar_right, c.y), col);
+}
+
+void DrawNext(ImDrawList* dl, ImVec2 p0, ImVec2 p1, ImU32 col) {
+  ImVec2 c((p0.x + p1.x) * 0.5f, (p0.y + p1.y) * 0.5f);
+  float s = (p1.y - p0.y) * 0.26f;
+  constexpr float kBarW = 2.2f;
+  float tri_w = s * 1.6f;
+  float half = (kBarW + tri_w) * 0.5f;
+  float bar_right = c.x + half;
+  float bar_left = bar_right - kBarW;
+  dl->AddRectFilled(ImVec2(bar_left, c.y - s), ImVec2(bar_right, c.y + s), col);
+  dl->AddTriangleFilled(ImVec2(bar_left - tri_w, c.y - s), ImVec2(bar_left - tri_w, c.y + s),
+                        ImVec2(bar_left, c.y), col);
+}
+
+void DrawPlay(ImDrawList* dl, ImVec2 p0, ImVec2 p1, ImU32 col) {
+  ImVec2 c((p0.x + p1.x) * 0.5f, (p0.y + p1.y) * 0.5f);
+  float s = (p1.y - p0.y) * 0.28f;
+  dl->AddTriangleFilled(ImVec2(c.x - s * 0.6f, c.y - s), ImVec2(c.x - s * 0.6f, c.y + s),
+                        ImVec2(c.x + s * 0.9f, c.y), col);
+}
+
+void DrawPause(ImDrawList* dl, ImVec2 p0, ImVec2 p1, ImU32 col) {
+  ImVec2 c((p0.x + p1.x) * 0.5f, (p0.y + p1.y) * 0.5f);
+  float h = (p1.y - p0.y) * 0.28f;
+  constexpr float kBarW = 3.0f, kGap = 4.0f;
+  dl->AddRectFilled(ImVec2(c.x - kGap * 0.5f - kBarW, c.y - h), ImVec2(c.x - kGap * 0.5f, c.y + h),
+                    col);
+  dl->AddRectFilled(ImVec2(c.x + kGap * 0.5f, c.y - h), ImVec2(c.x + kGap * 0.5f + kBarW, c.y + h),
+                    col);
+}
+
+void DrawStop(ImDrawList* dl, ImVec2 p0, ImVec2 p1, ImU32 col) {
+  ImVec2 c((p0.x + p1.x) * 0.5f, (p0.y + p1.y) * 0.5f);
+  float s = (p1.y - p0.y) * 0.22f;
+  dl->AddRectFilled(ImVec2(c.x - s, c.y - s), ImVec2(c.x + s, c.y + s), col);
+}
+
+// Padlock. Drawn closed (shackle centered over the body) or open (shackle
+// swung off to the side), matching the usual "song lock" UI convention.
+void DrawLock(ImDrawList* dl, ImVec2 p0, ImVec2 p1, ImU32 col, bool locked) {
+  ImVec2 c((p0.x + p1.x) * 0.5f, (p0.y + p1.y) * 0.5f);
+  float body_w = (p1.x - p0.x) * 0.30f;
+  float body_h = (p1.y - p0.y) * 0.34f;
+  ImVec2 body_min(c.x - body_w, c.y - body_h * 0.1f);
+  ImVec2 body_max(c.x + body_w, c.y + body_h);
+  dl->AddRectFilled(body_min, body_max, col, 1.5f);
+
+  float shackle_r = body_w * 0.85f;
+  float thickness = 2.0f;
+  ImVec2 hinge = locked ? ImVec2(c.x, body_min.y) : ImVec2(c.x + shackle_r * 0.5f, body_min.y);
+  constexpr float kPi = 3.14159265f;
+  dl->PathArcTo(hinge, shackle_r, kPi, 2.0f * kPi, 16);
+  dl->PathStroke(col, 0, thickness);
+}
+
+}  // namespace icons
+
+// A fixed-size button that paints a vector icon (from |icons|) instead of a
+// text label. |active| draws it in the "pressed/toggled" button color.
+template <typename DrawIconFn>
+bool IconButton(const char* str_id, DrawIconFn&& draw_icon, bool active = false) {
+  ImGui::PushID(str_id);
+  ImVec2 size(icons::kButtonSize, icons::kButtonSize);
+  bool pressed = ImGui::InvisibleButton(str_id, size);
+  bool hovered = ImGui::IsItemHovered();
+  bool held = ImGui::IsItemActive();
+
+  ImGuiCol bg = active || held ? ImGuiCol_ButtonActive
+                : hovered      ? ImGuiCol_ButtonHovered
+                               : ImGuiCol_Button;
+  ImDrawList* dl = ImGui::GetWindowDrawList();
+  ImVec2 p0 = ImGui::GetItemRectMin();
+  ImVec2 p1 = ImGui::GetItemRectMax();
+  dl->AddRectFilled(p0, p1, ImGui::GetColorU32(bg), ImGui::GetStyle().FrameRounding);
+  draw_icon(dl, p0, p1, ImGui::GetColorU32(ImGuiCol_Text));
+
+  ImGui::PopID();
+  return pressed;
+}
+
 }  // namespace
 
 class AudioPlayerDialog : public rex::ui::ImGuiDialog {
@@ -160,18 +258,18 @@ class AudioPlayerDialog : public rex::ui::ImGuiDialog {
       ImGui::TextUnformatted("Stopped");
     }
 
-    // |< button: go to previous group
-    if (ImGui::Button("|<")) {
+    // Skip to previous group.
+    if (IconButton("##prev", icons::DrawPrev)) {
       int prev = current_group > 0 ? current_group - 1 : num_groups - 1;
       xmp->PlayKnownSong(groups[prev].primary_index);
     }
     ImGui::SameLine();
     if (is_playing) {
-      if (ImGui::Button("||")) {
+      if (IconButton("##playpause", icons::DrawPause)) {
         xmp->XMPPause();
       }
     } else {
-      if (ImGui::Button(">")) {
+      if (IconButton("##playpause", icons::DrawPlay)) {
         if (is_paused) {
           xmp->XMPContinue();
         } else if (num_groups > 0) {
@@ -181,21 +279,35 @@ class AudioPlayerDialog : public rex::ui::ImGuiDialog {
       }
     }
     ImGui::SameLine();
-    // >| button: go to next group
-    if (ImGui::Button(">|")) {
+    // Skip to next group.
+    if (IconButton("##next", icons::DrawNext)) {
       int next = current_group >= 0 ? (current_group + 1) % num_groups : 0;
       xmp->PlayKnownSong(groups[next].primary_index);
     }
     ImGui::SameLine();
-    if (ImGui::Button("[]")) {
-      xmp->XMPStop(0);
+    if (IconButton("##stop", icons::DrawStop)) {
+      xmp->XMPStop(0, /*user_initiated=*/true);
+    }
+    ImGui::SameLine();
+    // Lock toggle: while locked, the game can't switch tracks on its own
+    // (e.g. on a room transition) and its volume (e.g. a room fade or a
+    // settings-menu slider) -- only an explicit pick/adjustment from this
+    // player (or the transport buttons above) changes them.
+    bool locked = xmp->locked();
+    if (IconButton("##lock", [locked](ImDrawList* dl, ImVec2 p0, ImVec2 p1, ImU32 col) {
+          icons::DrawLock(dl, p0, p1, col, locked);
+        }, locked)) {
+      xmp->SetLocked(!locked);
+    }
+    if (ImGui::IsItemHovered()) {
+      ImGui::SetTooltip(locked ? "Locked" : "Unlocked");
     }
 
     ImGui::SameLine();
     ImGui::TextUnformatted("Vol.");
     ImGui::SameLine();
     ImGui::SetNextItemWidth(-1);
-    float vol = xmp->volume();
+    float vol = xmp->audible_volume();
     if (ImGui::SliderFloat("##vol", &vol, 0.0f, 1.0f, "%.2f",
                            ImGuiSliderFlags_AlwaysClamp)) {
       xmp->SetVolume(vol);
