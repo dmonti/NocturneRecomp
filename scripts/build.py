@@ -160,6 +160,7 @@ def do_package(name, project_name, is_windows):
     with open(config_path, "w") as f:
         f.write('gpu_plugin = "xenos"\n')
         f.write("license_mask = 1\n")
+        f.write("gpu_allow_invalid_fetch_constants = true\n")
 
     if is_windows:
         launcher_path = os.path.join(pkg_dir, "run.bat")
