@@ -29,7 +29,6 @@
 #include <rex/kernel/xam/apps/xmp_app.h>
 #include <rex/system/kernel_state.h>
 #include <rex/system/xam/app_manager.h>
-#include "nocturnerecomp_fp_guard.h"
 
 class NocturnerecompApp : public rex::ReXApp {
  public:
@@ -44,16 +43,10 @@ class NocturnerecompApp : public rex::ReXApp {
   void OnPreSetup(rex::RuntimeConfig& /*config*/) override {
 #ifdef _WIN32
     timeBeginPeriod(1);
-    veh_handle_ = InstallGuestFpExceptionHandlerWin();
 #endif
   }
 
   void OnPostSetup() override {
-#ifndef _WIN32
-    // Install after SDK setup so we override any SDK-installed SIGFPE handler.
-    veh_handle_ = InstallGuestFpExceptionHandlerPosix();
-#endif
-
     // Bridge the guest "Achievements" pause-menu entry (XamShowAchievementsUI,
     // intercepted in achievements_menu.cpp) to the SDK's built-in achievements
     // overlay: guest A opens it (and pauses the game), controller B closes it.
@@ -120,13 +113,8 @@ class NocturnerecompApp : public rex::ReXApp {
   }
 
   void OnShutdown() override {
-    RemoveGuestFpExceptionHandler(veh_handle_);
-    veh_handle_ = nullptr;
 #ifdef _WIN32
     timeEndPeriod(1);
 #endif
   }
-
- private:
-  void* veh_handle_ = nullptr;
 };
