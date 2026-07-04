@@ -164,6 +164,7 @@ def do_package(name, project_name, is_windows):
         f.write("gpu_allow_invalid_fetch_constants = true\n")
         f.write("mnk_capture_mouse = false\n")
         f.write("mnk_mode = true\n")
+        f.write("\n")
         f.write('keybind_a = "Z"\n')
         f.write('keybind_b = "X"\n')
         f.write('keybind_x = "A"\n')
@@ -173,6 +174,11 @@ def do_package(name, project_name, is_windows):
         f.write('keybind_left_shoulder = "M"\n')
         f.write('keybind_right_shoulder = "B"\n')
         f.write('keybind_back = "Return"\n')
+        f.write("\n")
+        f.write("shader_dump_enabled = false\n")
+        f.write("texture_dump_enabled = false\n")
+        f.write('texture_dump_format = "png"\n')
+        f.write('texture_dump_skip_sizes = "512x256,1024x512,2048x1024,1920x1080,1280x720"\n')
 
     if is_windows:
         launcher_path = os.path.join(pkg_dir, "run.bat")

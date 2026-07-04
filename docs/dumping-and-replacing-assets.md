@@ -15,11 +15,10 @@ is compiled for.
 All of these go in `nocturnerecomp.toml`:
 
 ```toml
-texture_dump_enabled = true
-texture_dump_skip_sizes = "512x256,640x360,1280x720"
+shader_dump_enabled = false
+texture_dump_enabled = false
 texture_dump_format = "png"
-shader_dump_enabled = true
-texture_replace_enabled = false
+texture_dump_skip_sizes = "512x256,1024x512,2048x1024,1920x1080,1280x720"
 ```
 
 | cvar | default | purpose |
@@ -27,14 +26,11 @@ texture_replace_enabled = false
 | `texture_dump_enabled` | `false` | dump every texture the game uploads to `dumps/textures/` |
 | `texture_dump_format` | `"dds"` | `"dds"` (lossless, raw compressed blocks) or `"png"` (software-decompressed RGBA8) |
 | `texture_dump_skip_sizes` | unset | comma-separated `WxH` list to skip dumping (cuts noise from UI/font atlases, solid-color fills, etc.) |
-| `texture_replace_enabled` | `true` | whether mod texture overrides are applied at all |
 | `shader_dump_enabled` | `false` | dump every shader the game compiles/uses to `dumps/shaders/` |
 | `shader_load_enabled` | `true` | whether mod shader overrides (DXBC/SPIR-V) are applied |
 | `mods_dump_root` | unset | override where dumps are written (default: `<exe folder>/dumps`) |
 
-Toggling `texture_dump_enabled` or `shader_dump_enabled` requires a restart:
-uncomment the line, run `python scripts/run.py`, and play through the
-content you want to capture.
+Toggling `texture_dump_enabled` or `shader_dump_enabled` requires a restart.
 
 ## Dumping textures
 
@@ -73,8 +69,6 @@ mods/<name>/textures/<hash16>.png
 - DDS replacements can be any power-of-two resolution; you're not limited
   to the original size.
 - PNG replacements are loaded as RGBA8 (via stb_image).
-- `texture_replace_enabled` must be `true` (it is by default) for any of
-  this to take effect.
 - If multiple enabled mods ship a replacement for the same hash, the one
   from the mod earliest in `enabled_mods` wins.
 - Mods are re-scanned when the mod list changes, so you can add/replace
