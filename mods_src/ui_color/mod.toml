@@ -1,0 +1,5 @@
+manifest_version = 1
+name = "UI Color Picker"
+version = "1.0.0"
+description = "Overlay (F7) with a color picker for the UI accent color, synced live with game memory."
+code = "ui_color"
