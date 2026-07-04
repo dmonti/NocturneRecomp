@@ -21,6 +21,9 @@ src/main.cpp.bak
 # Embedded fonts header, rebuilt from src/fonts/*.ttf by scripts/gen-fonts.py
 /src/fonts.generated.h
 
+# Embedded icon header, rebuilt from assets/icon.png by scripts/gen-icon.py
+/src/icon.generated.h
+
 # Runtime artifacts — binary, logs, and bundled shared libraries
 /sdk/
 /logs/

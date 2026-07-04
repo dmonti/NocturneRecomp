@@ -27,6 +27,21 @@ add_custom_command(
     VERBATIM
 )
 
+# Embedded window icon: extracted directly from assets/default.xex (already a
+# required codegen input) so no extra asset needs to be checked in or fetched.
+# src/icon.generated.h is a gitignored build artifact regenerated whenever the
+# XEX or the generator script changes.
+set(NOCTURNE_ICON_HEADER ${CMAKE_SOURCE_DIR}/src/icon.generated.h)
+add_custom_command(
+    OUTPUT ${NOCTURNE_ICON_HEADER}
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/scripts/gen-icon.py
+    DEPENDS
+        ${CMAKE_SOURCE_DIR}/scripts/gen-icon.py
+        ${CMAKE_SOURCE_DIR}/assets/default.xex
+    COMMENT "Generating src/icon.generated.h"
+    VERBATIM
+)
+
 # Sources
 set(NOCTURNERECOMP_SOURCES
     src/main.cpp
@@ -34,6 +49,7 @@ set(NOCTURNERECOMP_SOURCES
     src/accent_color.cpp
     src/achievements_menu.cpp
     ${NOCTURNE_FONTS_HEADER}
+    ${NOCTURNE_ICON_HEADER}
     ${GENERATED_SOURCES}
 )
 

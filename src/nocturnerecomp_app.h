@@ -27,6 +27,7 @@
 #include "accent_color.h"
 #include "achievements_menu.h"
 #include "fonts.generated.h"
+#include "icon.generated.h"
 
 #include <rex/system/kernel_state.h>
 
@@ -54,6 +55,8 @@ class NocturnerecompApp : public rex::ReXApp {
     // live after setup.
     auto* input_sys = static_cast<rex::input::InputSystem*>(runtime()->input_system());
     nocturne::Achievements().Bind(window(), &app_context(), input_sys);
+
+    window()->SetIcon(nocturne::kIconPNG, nocturne::kIconPNGSize);
 
     // Movement/aim in mnk_mode is driven by the D-pad and mouse keybinds, not
     // the left/right analog stick.
