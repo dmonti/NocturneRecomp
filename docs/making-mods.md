@@ -25,7 +25,7 @@ mods/<name>/
   textures/    texture replacements: <hash16>.dds or .png (flat dir)
   shaders/     shader replacements (DXBC/SPIR-V binaries)
   mod.toml     descriptive metadata (see below)
-  icon.png     shown in the F6 mod manager overlay
+  icon.png     shown in the F1 mod manager overlay
 ```
 
 Files under `game/`/`update/`/`dlc/` mirror the exact guest path they
@@ -97,7 +97,7 @@ platform = ""
 ```
 
 `code` must match the CMake target name (and therefore the built DLL's stem).
-Everything else is display metadata shown in the F6 mod manager overlay.
+Everything else is display metadata shown in the F1 mod manager overlay.
 
 `platform` is *written by* `make_mods.py`, not read by it; leave it empty in
 a fresh mod.toml. After a successful build it's (re)set to a comma-separated
@@ -242,7 +242,7 @@ file:
 enabled_mods = "music_player,sample_overlay,memory_peek"
 ```
 
-Then run the game (`python scripts/run.py`) and press **F6** to open the mod
+Then run the game (`python scripts/run.py`) and press **F1** to open the mod
 manager overlay; it lists every enabled mod, in load order, with its icon
 and a `[code]` badge on mods that loaded a DLL. Check `logs/` if a code mod
 doesn't show up loaded; the loader logs the exact reason (missing DLL, ABI

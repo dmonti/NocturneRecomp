@@ -150,7 +150,7 @@ runtime. To turn a dump into a shareable mod:
    `mods/<name>/shaders/`, keeping the hash-based filename.
 2. Add a `mod.toml` (see making-mods.md) and optional `icon.png`.
 3. Add `<name>` to `enabled_mods` in `nocturnerecomp.toml`.
-4. `python scripts/run.py`, then press **F6** to confirm the mod loaded.
+4. `python scripts/run.py`, then press **F1** to confirm the mod loaded.
 
 If you want to distribute it, zip the `mods/<name>/` folder the same way
 `make_mods.py --package` does for code mods; asset mods just don't need
