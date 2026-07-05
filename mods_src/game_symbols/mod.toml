@@ -1,6 +1,6 @@
 manifest_version = 1
 name = "Game Symbols"
-version = "1.0.0"
+version = "1.0.1"
 author = "BiRabittoh"
 description = "Library mod: publishes reverse-engineered guest addresses into the SDK's shared mod registry."
 code = "game_symbols"
