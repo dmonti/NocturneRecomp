@@ -55,6 +55,19 @@ constexpr uint32_t kMaxWidth = 1280;
 constexpr uint32_t kMinHeight = 667;
 constexpr uint32_t kMaxHeight = 720;
 
+// Minimum preset's aspect ratio, scaled up to fill kMaxHeight instead of
+// stretching independently on each axis: round(kMinWidth * kMaxHeight / kMinHeight).
+constexpr uint32_t kFullWidth = 1136;
+
+constexpr uint32_t kHugeWidth = 1226;
+constexpr uint32_t kHugeHeight = 765;
+
+constexpr uint32_t kExtremeWidth = 1282;
+constexpr uint32_t kExtremeHeight = 793;
+
+constexpr uint32_t kStretchedWidth = 1280;
+constexpr uint32_t kStretchedHeight = 766;
+
 uint32_t ReadGuestU32BE(rex::memory::Memory* memory, uint32_t guest_address) {
   const uint8_t* host_address = memory->TranslateVirtual<const uint8_t*>(guest_address);
   return rex::memory::load_and_swap<uint32_t>(host_address);
@@ -216,16 +229,19 @@ class GraphicsSettingsDialog : public rex::ui::ImGuiDialog {
       SetOverride(kMinWidth, kMinHeight);
     }
     ImGui::SameLine();
-    if (ImGui::Button("Full")) {
-      // Keep the minimum preset's aspect ratio, scaled up to fill the max
-      // height instead of stretching independently on each axis.
-      uint32_t width = static_cast<uint32_t>(
-          std::lround(static_cast<double>(kMinWidth) * kMaxHeight / kMinHeight));
-      SetOverride(width, kMaxHeight);
+    if (ImGui::Button("Big")) {
+      SetOverride(kFullWidth, kMaxHeight);
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Huge")) {
+      SetOverride(kHugeWidth, kHugeHeight);
+    }
+    if (ImGui::Button("Extreme")) {
+      SetOverride(kExtremeWidth, kExtremeHeight);
     }
     ImGui::SameLine();
     if (ImGui::Button("Stretched")) {
-      SetOverride(kMaxWidth, kMaxHeight);
+      SetOverride(kStretchedWidth, kStretchedHeight);
     }
 
     ImGui::Separator();
