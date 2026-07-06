@@ -50,23 +50,28 @@ constexpr uint32_t kSpanSize = kHeightOffset + 4;  // 16 bytes covering all four
 // Observed clamp range of the live setting (this game renders at 1280x720;
 // the viewport rect is anchored to the bottom-right corner, so offset_x =
 // kMaxWidth - width and offset_y = kMaxHeight - height).
-constexpr uint32_t kMinWidth = 1052;
 constexpr uint32_t kMaxWidth = 1280;
-constexpr uint32_t kMinHeight = 667;
 constexpr uint32_t kMaxHeight = 720;
 
-// Minimum preset's aspect ratio, scaled up to fill kMaxHeight instead of
-// stretching independently on each axis: round(kMinWidth * kMaxHeight / kMinHeight).
-constexpr uint32_t kFullWidth = 1136;
+// PSX presets
+constexpr uint32_t kPsxDefaultWidth = 1052;
+constexpr uint32_t kPsxDefaultHeight = 720;
+constexpr uint32_t kPsxBigWidth = 1098;
+constexpr uint32_t kPsxBigHeight = 766;
 
-constexpr uint32_t kHugeWidth = 1226;
-constexpr uint32_t kHugeHeight = 765;
+// 16:10 presets
+constexpr uint32_t k1610DefaultWidth = 1052;
+constexpr uint32_t k1610DefaultHeight = 667;
+constexpr uint32_t k1610BigWidth = 1136;
+constexpr uint32_t k1610BigHeight = 720;
+constexpr uint32_t k1610HugeWidth = 1226;
+constexpr uint32_t k1610HugeHeight = 765;
+constexpr uint32_t k1610ExtremeWidth = 1282;
+constexpr uint32_t k1610ExtremeHeight = 793;
 
-constexpr uint32_t kExtremeWidth = 1282;
-constexpr uint32_t kExtremeHeight = 793;
-
-constexpr uint32_t kStretchedWidth = 1280;
-constexpr uint32_t kStretchedHeight = 766;
+// Other presets
+constexpr uint32_t kOtherStretchedWidth = 1280;
+constexpr uint32_t kOtherStretchedHeight = 766;
 
 uint32_t ReadGuestU32BE(rex::memory::Memory* memory, uint32_t guest_address) {
   const uint8_t* host_address = memory->TranslateVirtual<const uint8_t*>(guest_address);
@@ -225,23 +230,36 @@ class GraphicsSettingsDialog : public rex::ui::ImGuiDialog {
     }
 
     ImGui::TextUnformatted("Presets:");
-    if (ImGui::Button("Default")) {
-      SetOverride(kMinWidth, kMinHeight);
+
+    ImGui::TextUnformatted("PSX:");
+    if (ImGui::Button("Default##psx")) {
+      SetOverride(kPsxDefaultWidth, kPsxDefaultHeight);
     }
     ImGui::SameLine();
-    if (ImGui::Button("Big")) {
-      SetOverride(kFullWidth, kMaxHeight);
+    if (ImGui::Button("Big##psx")) {
+      SetOverride(kPsxBigWidth, kPsxBigHeight);
+    }
+
+    ImGui::TextUnformatted("16:10:");
+    if (ImGui::Button("Default##1610")) {
+      SetOverride(k1610DefaultWidth, k1610DefaultHeight);
     }
     ImGui::SameLine();
-    if (ImGui::Button("Huge")) {
-      SetOverride(kHugeWidth, kHugeHeight);
+    if (ImGui::Button("Big##1610")) {
+      SetOverride(k1610BigWidth, k1610BigHeight);
     }
-    if (ImGui::Button("Extreme")) {
-      SetOverride(kExtremeWidth, kExtremeHeight);
+    ImGui::SameLine();
+    if (ImGui::Button("Huge##1610")) {
+      SetOverride(k1610HugeWidth, k1610HugeHeight);
+    }
+
+    ImGui::TextUnformatted("Other:");
+    if (ImGui::Button("Extreme##1610")) {
+      SetOverride(k1610ExtremeWidth, k1610ExtremeHeight);
     }
     ImGui::SameLine();
     if (ImGui::Button("Stretched")) {
-      SetOverride(kStretchedWidth, kStretchedHeight);
+      SetOverride(kOtherStretchedWidth, kOtherStretchedHeight);
     }
 
     ImGui::Separator();
@@ -367,12 +385,12 @@ class GraphicsSettingsDialog : public rex::ui::ImGuiDialog {
   uint32_t style_addr_ = 0;
 
   bool custom_seeded_ = false;
-  int custom_width_ = static_cast<int>(kMinWidth);
-  int custom_height_ = static_cast<int>(kMinHeight);
+  int custom_width_ = static_cast<int>(k1610DefaultWidth);
+  int custom_height_ = static_cast<int>(k1610DefaultHeight);
 
   bool override_active_ = false;
-  uint32_t override_width_ = kMinWidth;
-  uint32_t override_height_ = kMinHeight;
+  uint32_t override_width_ = k1610DefaultWidth;
+  uint32_t override_height_ = k1610DefaultHeight;
 
   bool aspect_locked_ = false;
   double locked_aspect_ratio_ = 1.0;
