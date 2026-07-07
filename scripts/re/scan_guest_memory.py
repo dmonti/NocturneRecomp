@@ -16,9 +16,9 @@ directly via ctypes) and only makes sense against a process you control,
 for reverse-engineering your own recompiled build.
 
 Usage:
-    python scripts/scan_guest_memory.py scan <pid> --hex 0001090e
-    python scripts/scan_guest_memory.py scan <pid> --u32be 1 9 14
-    python scripts/scan_guest_memory.py read <pid> <host_addr_hex> --count 3 --u32be
+    python scripts/re/scan_guest_memory.py scan <pid> --hex 0001090e
+    python scripts/re/scan_guest_memory.py scan <pid> --u32be 1 9 14
+    python scripts/re/scan_guest_memory.py read <pid> <host_addr_hex> --count 3 --u32be
 """
 import argparse
 import ctypes

@@ -54,6 +54,7 @@ nocturnerecomp.toml
 # Modding stuff
 mods/
 dumps/
+extracted/
 
 # Python caches
 __pycache__/

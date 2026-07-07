@@ -22,4 +22,14 @@ function(rexmod_add_plugin target_name)
     # ImGui drawer, keybind registry, and kernel state as the host exe --
     # mirrors how the rexgpu-xenos GPU plugin links against rexruntime.
     target_link_libraries(${target_name} PRIVATE rex::runtime)
+    # Header-only helpers shared across mods (e.g. <rexmod/text_patch.h>)
+    # live under mods_src/common/include -- every mod gets this for free
+    # rather than each needing its own relative include path.
+    # CMAKE_CURRENT_FUNCTION_LIST_DIR (not CMAKE_CURRENT_LIST_DIR, which
+    # inside a function resolves against the *caller's* CMakeLists.txt)
+    # so this points at mods_src/common/mod_cmake regardless of which
+    # mod's CMakeLists.txt calls rexmod_add_plugin().
+    target_include_directories(${target_name} PRIVATE
+        ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/../include
+    )
 endfunction()

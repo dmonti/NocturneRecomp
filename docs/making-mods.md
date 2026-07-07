@@ -190,6 +190,14 @@ running at process exit; use `OnShutdown()` instead.
   event names `event_pong` and `blackboard` already subscribe to, it
   demonstrates that `Subscribe` supports fan-out to multiple listeners
   rather than last-one-wins.
+- **`mods_src/xex_patch_potion/`** and **`mods_src/xex_patch_red_rust/`**:
+  two independent, no-UI mods that each patch a different item
+  name/description baked into `default.xex`'s static data directly in
+  guest memory at startup, and coexist with no conflict. See
+  [Patching static game text/data](#patching-static-game-textdata) below,
+  and `mods_src/common/include/rexmod/text_patch.h` for the shared helper
+  both of them call instead of duplicating the read-only-page-unlock/
+  zero-fill logic.
 
 ### 3. Build it
 
@@ -367,6 +375,56 @@ registration order and only the first match fires and consumes the event --
 the later one is silently shadowed, not an error. Give every mod's bind both
 a unique name (it doubles as the backing CVar name) and, by convention, a
 unique default key.
+
+## Patching static game text/data
+
+Item/enemy names, descriptions, and similar flavor text aren't loaded from
+a separate asset file the VFS can overlay -- they're baked into
+`default.xex`'s static data (`.rdata`), copied into guest memory once at
+startup by the same loader that runs the game's code. Byte layout, text
+encoding, and the AES/compression format `default.xex` ships in on disk
+are documented in `extracted/README.md`.
+
+Two ways to change one of these strings:
+
+**Replace `default.xex` itself** (`mods/<name>/game/default.xex`).
+`XexModule::ReadImage` in the SDK doesn't verify a signature on the base
+image load, and accepts a plain, unencrypted/uncompressed XEX2 file
+(`scripts/re/rebuild_xex_unencrypted.py` builds one). A mod's
+`game/default.xex` **replaces the whole file** with no merging: if two
+mods each ship one, `enabled_mods` order picks a single winner and the
+other mod's edits are gone, whether or not they touched the same bytes.
+Use this only when a mod is the sole thing expected to touch game text,
+or needs a structural change a same-length string swap can't do.
+
+**Patch guest memory from a code mod instead**: any number of mods can
+each own a different address with no conflict, the same way
+`mods_src/ui_color` pokes the accent-color struct. Use
+`mods_src/common/include/rexmod/text_patch.h`'s `ApplyTextPatch`
+(description fields, plain ASCII) or `ApplyNameFieldPatch` (name fields,
+which use a "big first letter" font encoding -- see
+`extracted/README.md`) from `OnModuleLaunched()`. Requirements:
+
+1. **The guest address must come from scanning a live, running process**
+   (`scripts/re/scan_guest_memory.py`), not from offline-decrypting
+   `default.xex` and computing a file offset. A title that ships a
+   `default.xexp` (a title-update delta patch -- check the startup log
+   for `XEX patch applied successfully`) has that patch applied over the
+   base image on every launch, which can shift addresses after the
+   patched region by an amount offline decryption of the base file alone
+   won't account for.
+2. **The target field is very likely in read-only memory.** Writing to it
+   in-process access-violates (`0xC0000005`) unless the page is unlocked
+   first: `runtime->memory()->LookupHeap(addr)->Protect(addr, size,
+   kMemoryProtectRead | kMemoryProtectWrite, &old_protect)` before the
+   write, then `Protect(addr, size, old_protect)` after --
+   `ApplyTextPatch`/`ApplyNameFieldPatch` already do this.
+3. **Field length must be measured from what actually follows the string
+   in memory**, not assumed from `len(text) + 1`: some fields end in a
+   single null before the next field, some have no terminator at all
+   (butting directly against the next field or an entry-end marker), and
+   the pattern isn't consistent enough to assume without checking the
+   specific field being patched.
 
 ## Both builds, one DLL
 

@@ -27,14 +27,14 @@ namespace {
 //   2. Scanning the game's live memory for the exact byte pattern of a
 //      distinctive, *unsaved* slider combo (e.g. R=1 G=9 B=14) turned up a
 //      single non-mirrored hit at this address, which tracked further
-//      unsaved slider changes 1:1. See scripts/scan_guest_memory.py.
+//      unsaved slider changes 1:1. See scripts/re/scan_guest_memory.py.
 //   3. Confirmed stable across process restarts (it sits in the XEX's
 //      static data, not a runtime heap allocation), by loading a save in a
 //      fresh instance and reading the same address back.
 // The title update relocates the whole image (see NOCTURNE_TU in
 // achievements_menu.cpp), so this address shifts too; re-derived for the TU
 // build the same way (address confirmed live-tracking R/G/B changes with
-// scripts/scan_guest_memory.py against a --tu build).
+// scripts/re/scan_guest_memory.py against a --tu build).
 #ifdef NOCTURNE_TU
 constexpr uint32_t kAccentColorGuestAddress = 0x83173A88;
 #else
