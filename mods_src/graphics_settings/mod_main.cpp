@@ -28,9 +28,13 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <fstream>
 
 #include <imgui.h>
 
+#include <rex/cvar.h>
+#include <rex/filesystem.h>
+#include <rex/graphics/video_mode_util.h>
 #include <rex/memory/utils.h>
 #include <rex/runtime.h>
 #include <rex/system/mod_registry.h>
@@ -47,17 +51,30 @@ constexpr uint32_t kWidthOffset = 8;
 constexpr uint32_t kHeightOffset = 12;
 constexpr uint32_t kSpanSize = kHeightOffset + 4;  // 16 bytes covering all four fields
 
-// Observed clamp range of the live setting (this game renders at 1280x720;
-// the viewport rect is anchored to the bottom-right corner, so offset_x =
-// kMaxWidth - width and offset_y = kMaxHeight - height).
-constexpr uint32_t kMaxWidth = 1280;
-constexpr uint32_t kMaxHeight = 720;
+// Observed clamp range of the live setting at the game's compiled-in 720p
+// default. The viewport rect is anchored to the bottom-right corner, so
+// offset_x = max_width - width and offset_y = max_height - height, but
+// max_width/max_height themselves track the actual configured render
+// resolution (confirmed live at 1080p: offset_x + width == 1920, offset_y +
+// height == 1080, i.e. the same struct scales 1:1 with resolution rather
+// than staying fixed at 1280x720) -- see GetConfiguredVideoModeWidth/Height
+// below, which Apply() uses instead of a hardcoded constant.
 
 // PSX presets
 constexpr uint32_t kPsxDefaultWidth = 1052;
 constexpr uint32_t kPsxDefaultHeight = 720;
-constexpr uint32_t kPsxBigWidth = 1098;
-constexpr uint32_t kPsxBigHeight = 766;
+// User-measured at 1080p (1645x1147, ScalePresetWidth/Height's 1.5x factor
+// there), divided back down to this table's 720p baseline: 1645/1.5 =
+// 1096.67, 1147/1.5 = 764.67, each rounded to the nearest integer. Scaling
+// this baseline back up at 1080p reproduces 1646x1148 (ScalePresetWidth/
+// Height's std::lround rounds the exact 1097*1.5 = 1645.5 tie up) -- 1px off
+// from the original 1080p measurement in each axis, unavoidable since no
+// integer 720p baseline scales by exactly 1.5x to land on an odd target
+// (1645, 1147) precisely. This replaced the old kPsxBigWidth/Height
+// (1098/766) -- close enough to a separate "Huge" preset that having both
+// wasn't worth the redundancy.
+constexpr uint32_t kPsxBigWidth = 1097;
+constexpr uint32_t kPsxBigHeight = 765;
 
 // 16:10 presets
 constexpr uint32_t k1610DefaultWidth = 1052;
@@ -81,6 +98,120 @@ uint32_t ReadGuestU32BE(rex::memory::Memory* memory, uint32_t guest_address) {
 void WriteGuestU32BE(rex::memory::Memory* memory, uint32_t guest_address, uint32_t value) {
   uint8_t* host_address = memory->TranslateVirtual<uint8_t*>(guest_address);
   rex::memory::store_and_swap<uint32_t>(host_address, value);
+}
+
+// Persists the custom stretch as a fraction of the configured render
+// resolution, not raw pixels -- the stretch rect isn't save-file-persisted
+// (see kScreenStretchRectAddrVanilla's comment in game_symbols), so nothing
+// else remembers it across a restart, and switching resolution between
+// sessions (e.g. 720p one launch, 1080p the next) means raw pixel values
+// from a previous session wouldn't even be valid for the new max. Storing
+// width/GetConfiguredVideoModeWidth() and height/GetConfiguredVideoModeHeight()
+// instead means "restore to roughly this same framing" works at any
+// resolution. Lives under Runtime::user_data_root() (same per-game folder
+// the game's own saves go under, per the user -- Documents/nocturnerecomp
+// on Windows -- rather than hardcoding that folder name here, which
+// wouldn't survive a rename and wouldn't be portable to other platforms;
+// user_data_root() is however the app sets it up on this run, cross-
+// platform), not the shared nocturnerecomp.toml cvar config -- keeps this
+// mod's persistence independent of that file's own save/load lifecycle
+// (which otherwise requires the user to hit "Save to config" in the
+// unrelated built-in Settings overlay).
+std::filesystem::path ConfigFilePath(rex::Runtime* runtime) {
+  return runtime->user_data_root() / "mods" / "graphics_settings.cfg";
+}
+
+bool LoadPersistedRatios(rex::Runtime* runtime, double* out_width_ratio, double* out_height_ratio) {
+  std::ifstream file(ConfigFilePath(runtime));
+  if (!file) {
+    return false;
+  }
+  double width_ratio = 0.0;
+  double height_ratio = 0.0;
+  bool have_width = false;
+  bool have_height = false;
+  std::string line;
+  while (std::getline(file, line)) {
+    if (line.rfind("width_ratio=", 0) == 0) {
+      have_width = rex::cvar::ParseDouble(line.substr(12), width_ratio);
+    } else if (line.rfind("height_ratio=", 0) == 0) {
+      have_height = rex::cvar::ParseDouble(line.substr(13), height_ratio);
+    }
+  }
+  if (!have_width || !have_height || width_ratio <= 0.0 || height_ratio <= 0.0) {
+    return false;
+  }
+  *out_width_ratio = width_ratio;
+  *out_height_ratio = height_ratio;
+  return true;
+}
+
+void SavePersistedRatios(rex::Runtime* runtime, double width_ratio, double height_ratio) {
+  std::filesystem::path path = ConfigFilePath(runtime);
+  rex::filesystem::CreateParentFolder(path);
+  std::ofstream file(path, std::ios::trunc);
+  if (!file) {
+    return;
+  }
+  file << "width_ratio=" << width_ratio << "\n";
+  file << "height_ratio=" << height_ratio << "\n";
+}
+
+// Mirrors GetConfiguredVideoModeWidth/Height in the SDK's
+// kernel/xboxkrnl/xboxkrnl_video.cpp: the "resolution" cvar (e.g. "1080p")
+// only feeds into that derived value, it's never written back into the
+// video_mode_width/video_mode_height cvar storage itself. So checking those
+// cvars directly still reads the 1280x720 compiled default even when the
+// game is actually told to run at 1080p; the same fallback chain has to be
+// replicated here to know the resolution actually in effect.
+uint32_t GetConfiguredVideoModeWidth() {
+  int32_t configured_width = REXCVAR_QUERY(int32_t, video_mode_width);
+  if (!rex::cvar::HasNonDefaultValue("video_mode_width")) {
+    if (rex::cvar::HasNonDefaultValue("window_width") && REXCVAR_QUERY(int32_t, window_width) > 0) {
+      configured_width = REXCVAR_QUERY(int32_t, window_width);
+    } else {
+      int32_t preset_width = 0;
+      int32_t preset_height = 0;
+      if (rex::graphics::video_mode_util::TryGetResolutionPresetFromCVar(preset_width,
+                                                                         preset_height)) {
+        configured_width = preset_width;
+      }
+    }
+  }
+  return static_cast<uint32_t>(std::clamp(configured_width, 640, 0x0FFF));
+}
+
+uint32_t GetConfiguredVideoModeHeight() {
+  int32_t configured_height = REXCVAR_QUERY(int32_t, video_mode_height);
+  if (!rex::cvar::HasNonDefaultValue("video_mode_height")) {
+    if (rex::cvar::HasNonDefaultValue("window_height") && REXCVAR_QUERY(int32_t, window_height) > 0) {
+      configured_height = REXCVAR_QUERY(int32_t, window_height);
+    } else {
+      int32_t preset_width = 0;
+      int32_t preset_height = 0;
+      if (rex::graphics::video_mode_util::TryGetResolutionPresetFromCVar(preset_width,
+                                                                         preset_height)) {
+        configured_height = preset_height;
+      }
+    }
+  }
+  return static_cast<uint32_t>(std::clamp(configured_height, 480, 0x0FFF));
+}
+
+// All the preset constants below are baseline pixel values tuned at the
+// game's compiled-in 720p default. Scale them to the actual configured
+// resolution before applying -- confirmed live that the stretch-rect max
+// scales 1:1 with the configured resolution (e.g. 1.5x at 1080p), so scaling
+// the presets by the same per-axis ratio keeps their relative framing intact
+// at any resolution instead of only working at exactly 1280x720.
+uint32_t ScalePresetWidth(uint32_t base_width) {
+  double ratio = static_cast<double>(GetConfiguredVideoModeWidth()) / 1280.0;
+  return static_cast<uint32_t>(std::lround(base_width * ratio));
+}
+
+uint32_t ScalePresetHeight(uint32_t base_height) {
+  double ratio = static_cast<double>(GetConfiguredVideoModeHeight()) / 720.0;
+  return static_cast<uint32_t>(std::lround(base_height * ratio));
 }
 
 // Padlock icon + fixed-size icon button, lifted from mods_src/music_player
@@ -135,6 +266,15 @@ class GraphicsSettingsDialog : public rex::ui::ImGuiDialog {
       : ImGuiDialog(drawer), runtime_(runtime) {
     rex::ui::RegisterBind("bind_graphics_settings", "F6", "Toggle graphics settings overlay",
                           [this] { visible_ = !visible_; });
+    // Reasserts the last-requested stretch every guest frame regardless of
+    // whether this overlay's window is open -- needed so a persisted value
+    // (see ResolveAddress below) actually takes effect on a fresh launch
+    // even if the player never presses F6. Runs on the command-processor
+    // thread (see RegisterTick's docs), not the UI thread, but Apply() below
+    // only touches guest memory, not ImGui, so that's fine.
+    if (runtime_ && runtime_->mod_registry()) {
+      runtime_->mod_registry()->RegisterTick([this] { ReassertOverride(); });
+    }
   }
 
   ~GraphicsSettingsDialog() override { rex::ui::UnregisterBind("bind_graphics_settings"); }
@@ -154,6 +294,43 @@ class GraphicsSettingsDialog : public rex::ui::ImGuiDialog {
         style_addr_resolved_ = true;
       }
     }
+
+    // Restore a persisted custom stretch, if any, scaled to whatever
+    // resolution this launch is actually configured for -- see
+    // SavePersistedRatios/LoadPersistedRatios above for why this is stored
+    // as a ratio rather than raw pixels. Sets the override fields directly
+    // (not via SetOverride) so restoring on launch doesn't immediately
+    // rewrite the same ratio back to disk.
+    double width_ratio = 0.0;
+    double height_ratio = 0.0;
+    if (runtime_ && LoadPersistedRatios(runtime_, &width_ratio, &height_ratio)) {
+      override_width_ =
+          static_cast<uint32_t>(std::lround(width_ratio * GetConfiguredVideoModeWidth()));
+      override_height_ =
+          static_cast<uint32_t>(std::lround(height_ratio * GetConfiguredVideoModeHeight()));
+      override_active_ = true;
+      custom_width_ = static_cast<int>(override_width_);
+      custom_height_ = static_cast<int>(override_height_);
+      custom_seeded_ = true;
+    }
+  }
+
+  // Writes the current override to guest memory if one is active and the
+  // struct is currently readable. Shared by the per-frame tick (registered
+  // in the constructor, for when this overlay isn't open) and OnDraw's own
+  // per-frame reassertion (for immediate feedback while it is).
+  void ReassertOverride() {
+    if (!override_active_ || !addr_resolved_ || !runtime_) {
+      return;
+    }
+    auto* memory = runtime_->memory();
+    auto* heap = memory ? memory->LookupHeap(addr_) : nullptr;
+    bool readable = heap && heap->QueryRangeAccess(addr_, addr_ + kSpanSize - 1) !=
+                                rex::memory::PageAccess::kNoAccess;
+    if (!readable) {
+      return;
+    }
+    Apply(memory, override_width_, override_height_);
   }
 
  protected:
@@ -221,45 +398,46 @@ class GraphicsSettingsDialog : public rex::ui::ImGuiDialog {
     // The game re-derives this rect from something else every frame while
     // this menu is open (a one-shot write gets stomped within a frame or
     // two), so keep re-asserting the last requested value every frame
-    // instead of writing once on click -- our OnDraw runs after the game's
-    // own per-frame update, so this wins the fight.
+    // instead of writing once on click. The constructor's tick already does
+    // this in the background regardless of this window's visibility (that's
+    // what makes a persisted value take effect without needing F6 pressed),
+    // but call it again here too so a just-clicked preset/edit is reflected
+    // in this frame's display immediately rather than one frame later.
     if (override_active_) {
-      Apply(memory, override_width_, override_height_);
+      ReassertOverride();
       width = ReadGuestU32BE(memory, addr_ + kWidthOffset);
       height = ReadGuestU32BE(memory, addr_ + kHeightOffset);
     }
-
-    ImGui::TextUnformatted("Presets:");
-
+    
     ImGui::TextUnformatted("PSX:");
     if (ImGui::Button("Default##psx")) {
-      SetOverride(kPsxDefaultWidth, kPsxDefaultHeight);
+      SetOverride(ScalePresetWidth(kPsxDefaultWidth), ScalePresetHeight(kPsxDefaultHeight));
     }
     ImGui::SameLine();
     if (ImGui::Button("Big##psx")) {
-      SetOverride(kPsxBigWidth, kPsxBigHeight);
+      SetOverride(ScalePresetWidth(kPsxBigWidth), ScalePresetHeight(kPsxBigHeight));
     }
 
     ImGui::TextUnformatted("16:10:");
     if (ImGui::Button("Default##1610")) {
-      SetOverride(k1610DefaultWidth, k1610DefaultHeight);
+      SetOverride(ScalePresetWidth(k1610DefaultWidth), ScalePresetHeight(k1610DefaultHeight));
     }
     ImGui::SameLine();
     if (ImGui::Button("Big##1610")) {
-      SetOverride(k1610BigWidth, k1610BigHeight);
+      SetOverride(ScalePresetWidth(k1610BigWidth), ScalePresetHeight(k1610BigHeight));
     }
     ImGui::SameLine();
     if (ImGui::Button("Huge##1610")) {
-      SetOverride(k1610HugeWidth, k1610HugeHeight);
+      SetOverride(ScalePresetWidth(k1610HugeWidth), ScalePresetHeight(k1610HugeHeight));
     }
 
     ImGui::TextUnformatted("Other:");
     if (ImGui::Button("Extreme##1610")) {
-      SetOverride(k1610ExtremeWidth, k1610ExtremeHeight);
+      SetOverride(ScalePresetWidth(k1610ExtremeWidth), ScalePresetHeight(k1610ExtremeHeight));
     }
     ImGui::SameLine();
     if (ImGui::Button("Stretched")) {
-      SetOverride(kOtherStretchedWidth, kOtherStretchedHeight);
+      SetOverride(ScalePresetWidth(kOtherStretchedWidth), ScalePresetHeight(kOtherStretchedHeight));
     }
 
     ImGui::Separator();
@@ -358,17 +536,25 @@ class GraphicsSettingsDialog : public rex::ui::ImGuiDialog {
     if (aspect_locked_ && height != 0) {
       locked_aspect_ratio_ = static_cast<double>(width) / height;
     }
+    // Persist as a fraction of the current resolution so this restores
+    // sanely even if the next launch is configured for a different one.
+    uint32_t configured_width = GetConfiguredVideoModeWidth();
+    uint32_t configured_height = GetConfiguredVideoModeHeight();
+    if (runtime_ && configured_width != 0 && configured_height != 0) {
+      SavePersistedRatios(runtime_, static_cast<double>(width) / configured_width,
+                          static_cast<double>(height) / configured_height);
+    }
   }
 
-  // Deliberately unclamped: kMinWidth/kMaxWidth/kMinHeight/kMaxHeight are
-  // just what the game's own settings screen happens to allow, not a
-  // hardware or format limit, and the user found going beyond them works.
-  // offset_x/offset_y wrap (as huge unsigned values) if width/height exceed
-  // kMaxWidth/kMaxHeight -- harmless in practice, matches what pressing the
-  // in-game controls far enough would eventually compute anyway.
+  // Deliberately unclamped: these are just what the game's own settings
+  // screen happens to allow, not a hardware or format limit, and the user
+  // found going beyond them works. offset_x/offset_y wrap (as huge unsigned
+  // values) if width/height exceed the configured resolution -- harmless in
+  // practice, matches what pressing the in-game controls far enough would
+  // eventually compute anyway.
   void Apply(rex::memory::Memory* memory, uint32_t width, uint32_t height) {
-    uint32_t offset_x = kMaxWidth - width;
-    uint32_t offset_y = kMaxHeight - height;
+    uint32_t offset_x = GetConfiguredVideoModeWidth() - width;
+    uint32_t offset_y = GetConfiguredVideoModeHeight() - height;
     WriteGuestU32BE(memory, addr_ + kOffsetXOffset, offset_x);
     WriteGuestU32BE(memory, addr_ + kOffsetYOffset, offset_y);
     WriteGuestU32BE(memory, addr_ + kWidthOffset, width);
