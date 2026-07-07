@@ -131,12 +131,20 @@ class NocturnerecompApp : public rex::ReXApp {
   }
 
   // Replace the SDK's default pixel font with a serif face that fits the
-  // game's gothic aesthetic.
+  // game's gothic aesthetic. Fonts must be registered here (before the atlas
+  // texture is baked and uploaded) -- adding a font afterward, e.g. from a
+  // mod at runtime, leaves it without backing GPU texture data and crashes
+  // the first time it's used to render.
+  //
+  // Also registers ImGui's embedded fixed-width font (ProggyClean) right
+  // after, purely so mods needing column-aligned text (hex dumps, tables)
+  // have a monospace option: look it up via ImGui::GetIO().Fonts->Fonts[1].
   void OnConfigureFonts(ImFontAtlas* atlas) override {
     ImFontConfig cfg;
     cfg.FontDataOwnedByAtlas = false;
     atlas->AddFontFromMemoryTTF(const_cast<unsigned char*>(nocturne::kPTSerifRegularTTF),
                                 static_cast<int>(nocturne::kPTSerifRegularTTFSize), 16.0f, &cfg);
+    atlas->AddFontDefault();
   }
 
   // The overlay's whole color palette is mathematically derived (see
