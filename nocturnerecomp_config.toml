@@ -21,3 +21,8 @@
 [functions]
 0x8282AEF0 = {}
 0x82286638 = {}
+
+[rexcrt]
+memcpy  = 0x825E3300
+memmove = 0x825E37D0
+memset  = 0x825E2740
