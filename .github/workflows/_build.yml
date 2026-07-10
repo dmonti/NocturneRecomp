@@ -99,13 +99,14 @@ jobs:
 
       - name: Cache TU packages
         id: tu-cache
+        if: matrix.platform != 'linux-arm64'
         uses: actions/cache@v5
         with:
           path: tu_packages/
           key: ${{ env.TU_ASSET_CACHE_KEY }}
 
       - name: Fetch TU packages
-        if: steps.tu-cache.outputs.cache-hit != 'true'
+        if: matrix.platform != 'linux-arm64' && steps.tu-cache.outputs.cache-hit != 'true'
         env:
           GH_TOKEN: ${{ secrets.ASSETS_TOKEN }}
         shell: bash
@@ -159,10 +160,12 @@ jobs:
           if-no-files-found: error
 
       - name: Build (tu)
+        if: matrix.platform != 'linux-arm64'
         shell: bash
         run: python scripts/build.py --sdk-dir sdk/${{ matrix.sdk_dir }} --tu tu_packages/
 
       - name: Package (tu)
+        if: matrix.platform != 'linux-arm64'
         shell: bash
         run: |
           if [ "${{ inputs.publish_mode }}" = "artifact" ]; then
@@ -173,7 +176,7 @@ jobs:
           python scripts/build.py --package "${out}"
 
       - name: Upload CI artifact (tu)
-        if: inputs.publish_mode == 'artifact'
+        if: inputs.publish_mode == 'artifact' && matrix.platform != 'linux-arm64'
         uses: actions/upload-artifact@v4
         with:
           name: ${{ inputs.artifact_name }}-tu-${{ matrix.artifact_suffix }}
@@ -181,7 +184,7 @@ jobs:
           if-no-files-found: error
 
       - name: Upload release artifact (tu)
-        if: inputs.publish_mode == 'release'
+        if: inputs.publish_mode == 'release' && matrix.platform != 'linux-arm64'
         uses: actions/upload-artifact@v4
         with:
           name: release-tu-${{ matrix.platform }}
